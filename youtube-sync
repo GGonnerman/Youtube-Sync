@@ -30,22 +30,27 @@ update_youtube_sync() {
     [ "$TYPE" = "" ] && echo "Type missing from .youtube-sync in \"$PWD\"" && popd && return
     [ "$TYPE" != "mp3" ] && [ "$TYPE" != "mp4" ] && echo "Type is corrupted in \"$PWD\"" && popd && return
 
-    if [ ! $no_confirm ]; then
-	echo "Do you want to remove and reinstall everything in $PWD?"
-	select yn in "Yes" "No"; do
-	    case $yn in
-		Yes) break;;
-		No) popd; return;;
-	    esac
-	done
+    if [ $force_reload ]; then
+	if [ ! $no_confirm ]; then
+	    echo "Do you want to remove and reinstall everything in $PWD?"
+	    select yn in "Yes" "No"; do
+		case $yn in
+		    Yes) break;;
+		    No) popd; return;;
+		esac
+	    done
+	fi
+	[ $force_reload ] && rm .archive && touch .archive && rm *
     fi
 
-    [ $force_reload ] && rm .archive && touch .archive && rm *
-
-    diff .archive <(echo "$(youtube-dl -i --get-id "$PLAYLIST" | sed 's/^/youtube /')") > .temp-archive
-    ADDS=$(grep -Pio "(?<=> youtube ).*" .temp-archive)
-    DELS=$(grep -Pio "(?<=< youtube ).*" .temp-archive)
-    rm .temp-archive
+    echo "$(cat .archive | sed 's/youtube //')" > .old-archive
+    echo "$(youtube-dl -i --no-warnings --get-id "$PLAYLIST" )" > .new-archive 
+    diff .old-archive .new-archive > .temp-archive
+#    echo $( youtube-dl -i --get-id "$PLAYLIST" | sed 's/^/youtube /' ) > .barchive
+#    diff <( cat .archive | sed 's/youtube //' ) <(echo "$(youtube-dl -i --get-id "$PLAYLIST" | sed 's/^/youtube /')") > .temp-archive
+#    diff .archive <(echo "$(youtube-dl -i --get-id "$PLAYLIST" 2>/dev/null | sed 's/^/youtube /')") > .temp-archive
+    ADDS=$(grep -Pio "(?<=> ).*" .temp-archive)
+    DELS=$(grep -Pio "(?<=< ).*" .temp-archive)
 
     for i in $DELS
     do
@@ -58,7 +63,7 @@ update_youtube_sync() {
     do
 	[ "$TYPE" = "mp3" ] && youtube-dl -f bestaudio --audio-quality 0 --audio-format mp3 -i -x "$i" >/dev/null && echo "youtube $i" >> .archive
 	[ "$TYPE" = "mp4" ] && youtube-dl -f bestvideo[ext!=webm]+bestaudio[ext!=webm]/best[ext!=webm] -i "$i" >/dev/null && echo "youtube $i" >> .archive
-	echo "Added $(find -maxdepth 1 -name *$i* | sed 's~./~~')"
+	echo "Added $(find -maxdepth 1 -regex ".*$i.*" | sed 's~./~~')"
     done
     popd
 }
@@ -111,6 +116,8 @@ while test $# -gt 0; do
 	    ;;
     esac
 done
+
+ping -c1 unix.com &>/dev/null || ( echo "No internet connection detected, exitting" && exit 1 )
 
 if [ $install ]; then
 
