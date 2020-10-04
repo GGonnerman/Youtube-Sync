@@ -51,6 +51,9 @@ update_youtube_sync() {
 #    diff .archive <(echo "$(youtube-dl -i --get-id "$PLAYLIST" 2>/dev/null | sed 's/^/youtube /')") > .temp-archive
     ADDS=$(grep -Pio "(?<=> ).*" .temp-archive)
     DELS=$(grep -Pio "(?<=< ).*" .temp-archive)
+    rm .old-archive
+    rm .new-archive
+    rm .temp-archive
 
     for i in $DELS
     do
