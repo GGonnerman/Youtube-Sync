@@ -15,17 +15,17 @@ function usage() {
 }
 
 function youtubem4a() {
-	youtube-dl \
-		--cookies ~/.youtube/cookies.txt \
-		-f bestaudio \
+	#youtube-dl \
+		#--cookies ~/.youtube/cookies.txt \
+		yt-dlp -f bestaudio \
 		--force-ipv4 \
 		--audio-quality 0 \
 		--audio-format m4a \
-		--ignore-errors \
 		--extract-audio \
 		--add-metadata \
+		--check-formats \
 		--embed-thumbnail \
-		--postprocessor-args "-id3v2_version 3" \
+		--postprocessor-args id3v2_version:3 \
 		--output "%(title)s (%(id)s).%(ext)s" \
 		-- "$@" || true
 	#--external-downloader aria2c \
@@ -33,19 +33,18 @@ function youtubem4a() {
 }
 
 function youtubemp4() {
-	youtube-dl \
-		--cookies ~/.youtube/cookies.txt \
-		-f bestaudio \
+	yt-dlp \
 		--force-ipv4 \
-		-f 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/mp4' \
-		--ignore-errors \
+		--format mp4 \
 		--add-metadata \
 		--embed-thumbnail \
-		--postprocessor-args "-id3v2_version 3" \
+		--check-formats \
+		--check-formats \
+		--postprocessor-args id3v2_version:3 \
 		--output "[$1] %(title)s (%(id)s).%(ext)s" \
-		--external-downloader aria2c \
-		--external-downloader-args "-x 16 -s 16 -k 1M" \
 		-- "${@:2}" || true
+		#--external-downloader aria2c \
+		#--external-downloader-args "-x 16 -s 16 -k 1M" \
 }
 
 install=false
@@ -83,6 +82,12 @@ fi
 if ! command -v atomicparsley &> /dev/null
 then
     echo "atomicparsley could not be found; exiting"
+    exit
+fi
+
+if ! command -v mutagen-pony &> /dev/null
+then
+    echo "python-mutagen could not be found; exiting"
     exit
 fi
 
@@ -218,7 +223,8 @@ do
 		echo "$id" >> .youtube-sync-ids
 	fi
 	# If fast, continue; otherwise short random delay
-	$fast || echo "sleep $[ ( $RANDOM % 30 )  + 5 ]s"
+	seconds=$[ ( $RANDOM % 30 + 5 ) ]
+	$fast || (echo -e "\033[0;31msleeping for ${seconds}s...\033[0m" && sleep "${seconds}s")
 done
 
 # Rename to match current playlist order
@@ -229,9 +235,14 @@ if [[ "$file_type" = "mp4" ]]; then
 	do
 		count=$((count + 1))
 		name=$( find . -maxdepth 1 -iname "*$id*" | cut -c 3- )
-		mv "$name" "${name//\[[0-9]*\]/\[$count\]}" 2>/dev/null
+		if [[ "$name" != "${name//\[[0-9]*\]/\[$count\]}" ]]; then
+			mv --force "$name" "${name//\[[0-9]*\]/\[$count\]}" #2>/dev/null
+		fi
 	done
 fi
+
+echo "Deleting temporary id list"
+rm --force .youtube-sync-new_ids
 
 popd >/dev/null
 
