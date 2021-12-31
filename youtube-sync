@@ -73,9 +73,9 @@ done
 
 ping -c1 unix.com &>/dev/null || ( echo "No internet connection detected, exitting" && exit 1 )
 
-if ! command -v youtube-dl &> /dev/null
+if ! command -v yt-dlp &> /dev/null
 then
-    echo "youtube-dl could not be found; exiting"
+    echo "yt-dlp could not be found; exiting"
     exit 1
 fi
 
@@ -150,7 +150,7 @@ $forcereload && echo "Forcing a full reload..."
 
 # Probably bad solution, but || true makes it so it doesn't crash
 echo "Retrieving playlist..."
-youtube-dl --cookies ~/.youtube/cookies.txt --flat-playlist --ignore-errors --no-warnings --get-id "$playlist" > .youtube-sync-new_ids || true
+yt-dlp --flat-playlist --ignore-errors --no-warnings --get-id "$playlist" > .youtube-sync-new_ids || true
 
 OLDIDS=$(cat .youtube-sync-ids)
 NEWIDS=$(cat .youtube-sync-new_ids)
@@ -230,13 +230,21 @@ done
 # Rename to match current playlist order
 if [[ "$file_type" = "mp4" ]]; then
 	echo "Renaming files to fit playlist order"
+	total=0
+	for id in $NEWIDS
+	do
+	    total=$((total + 1))
+	done
 	count=0
 	for id in $NEWIDS
 	do
 		count=$((count + 1))
 		name=$( find . -maxdepth 1 -iname "*$id*" | cut -c 3- )
-		if [[ "$name" != "${name//\[[0-9]*\]/\[$count\]}" ]]; then
-			mv --force "$name" "${name//\[[0-9]*\]/\[$count\]}" #2>/dev/null
+		formatted=$(printf %0${#total}d $count)
+		echo "Formatted: $formatted"
+
+		if [[ "$name" != "${name//\[[0-9]*\]/\[$formatted\]}" ]]; then
+			mv --force "$name" "${name//\[[0-9]*\]/\[$formatted\]}" #2>/dev/null
 		fi
 	done
 fi
